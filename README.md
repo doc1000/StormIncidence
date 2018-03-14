@@ -15,18 +15,6 @@ It appears that the collection of data at NOAA changed artound 1993.  The number
 *Test*
 I will test whether the number of severe storms over the second half of the data set, from 1984 to 2017, is significantly different than the prior period from 1950 to 1983.  I will test across 3 metrics to capture slightly different aspects of of the general question.  First, I will measure the number of storms with damage above a specific criteria adjusted by by real economic growth and inflation.  Second, the number of storms with winds speeds in the highest quartile of intensity.  Third, I will measure aggregate deaths both adjusted and unadjusted by population.  ... if I have time.
 
-
-poisson.test(c(n1, n2), c(t1, t2), alternative = c("two.sided"))
-
-confidence intervals:
-Lrec = as.numeric(as.Date("2010-07-01") - as.Date("2007-12-02")) # Length of recession
-Lnrec = as.numeric(as.Date("2007-12-01") - as.Date("2001-12-01")) # L of non rec period
-(43/Lrec)/(50/Lnrec)
-
-N = 100000
-k=(rpois(N, 43)/Lrec)/(rpois(N, 50)/Lnrec)
-c(quantile(k, c(0.025, .25, .5, .75, .975)), mean=mean(k), sd=sd(k))
-
 *H0*
 My null hypothesis is that the number of severe storms in the earlier and later periods come from the same population and that there is no statistical difference between the two epochs.
 
