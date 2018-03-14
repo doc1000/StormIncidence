@@ -6,7 +6,7 @@ df_master = pd.read_csv('data/NOAA_storm_files/StormEvents_details-ftp_v1.0_d195
 files = pd.read_csv('csv_list')
 files.columns=['filename']
 files = files['filename'].str.replace('.gz','')
-my_cols = ['STATE','YEAR','MONTH_NAME','EVENT_TYPE','EVENT_ID','DAMAGE_PROPERTY','DAMAGE_CROPS','DEATHS_DIRECT','DEATHS_INDIRECT','INJURIES_DIRECT','INJURIES_INDIRECT','MAGNITUDE','BEGIN_LAT','BEGIN_LON','TOR_F_SCALE']
+my_cols = ['STATE','YEAR','MONTH_NAME','EVENT_TYPE','EVENT_ID','BEGIN_DATE_TIME','END_DATE_TIME','DAMAGE_PROPERTY','DAMAGE_CROPS','DEATHS_DIRECT','DEATHS_INDIRECT','INJURIES_DIRECT','INJURIES_INDIRECT','MAGNITUDE','BEGIN_LAT','BEGIN_LON','TOR_F_SCALE']
 df_master = df_master[my_cols]
 for i,file in enumerate(files.values):
 

@@ -427,44 +427,21 @@ if __name__ == '__main__':
     # #tar_chart = method_of_moments()
     #tar_chart.fit(df=eda.df,col=eda.target_column)
     path = ''
-    filename = 'data/storm_data.csv'
+    filename = 'data/cleaned_storm_data.csv'
     df_master = pd.read_csv(str(path + filename))
     eda = panda_eda(df_master)
-    eda.df.columns = [str.lower(column) for column in eda.df.columns]
-    eda.set_number_correct('damage_crops')
-    eda.set_number_correct('damage_property')
-    eda.df['conv_f_scale'] =  eda.df['tor_f_scale'].map(tor_conversion)
+    condition_severityA = eda.df['severity']=='A'
 
-    '''
-    if there isn't property damage, prob don't want to look at it
-    however, there are some with crop damage and with injuries and deaths, that may be useful
-    '''
-    #eda.df = eda.df[eda.df['DAMAGE_PROPERTY']>0]
-    #import GDP data to normalize with
-    GDP = pd.read_csv('data/GDP.csv')
-    GDP['year'] = pd.DatetimeIndex(GDP['DATE']).year
-    GDP_year = GDP.groupby('year').mean()
-    base_year_gdp =GDP_year[GDP_year.index==2017]['GDP'].values[0]
-    GDP_year['gdp_adj_factor']=GDP_year['GDP']/base_year_gdp
-    eda.df = eda.df.set_index('year').join(GDP_year['gdp_adj_factor'])
-    eda.df['adj_damage'] = (eda.df['damage_property']+eda.df['damage_crops'])/eda.df['gdp_adj_factor']
-    eda.df = eda.df[eda.df['adj_damage']>0]
-
-    eda.set_numeric_column()
-    eda.drop_columns(0,by_name=False)
-    eda.target_column='adj_damage'
-    eda.df.drop(['gdp_adj_factor','event_id'],axis=1,inplace=True)
-    eda.df['log_adj_damage'] = np.log(eda.df['adj_damage'])
     range_list = range(1950,2021,10)
     yr_labels = [ "{0}s".format(i, i + 9) for i in range_list[:-1]]
-    eda.df['decade'] = pd.cut(eda.df.index, range_list, right=False, labels=yr_labels)
-    condition_50s = (eda.df['decade']=='1950s')
+    eda.df['decade'] = pd.cut(eda.df['year'], range_list, right=False, labels=yr_labels)
 
-    event_targets = ['Tornado','TORNADOES']
-    condition_tornadoes = eda.df['event_type'].isin(event_targets)
 
-    severity_max = eda.df[condition_50s]['adj_damage'].max()
-    severity_range = np.log([1,severity_max/1000,severity_max/100,severity_max/10,3*severity_max])
-    severity_labels = ['A','B','C','D']
-    eda.df['severity'] = pd.cut(eda.df['log_adj_damage'], severity_range, right=False, labels=severity_labels)
-    condition_severityA = eda.df['severity']=='A'
+    early_tor_rate = eda.df[eda.df['year']<1984]['state'].count()/33
+    late_tor_rate = eda.df[eda.df['year']>=1984]['state'].count()/34
+
+    df_year = eda.df.groupby('year').sum().reset_index()
+    df_year_cnt = eda.df.groupby('year').count().reset_index()
+    df_year_cnt.columns=['year','cnt']
+    df_year = df_year.merge(df_year_cnt)
+    
