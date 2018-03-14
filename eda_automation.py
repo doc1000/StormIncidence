@@ -403,7 +403,7 @@ def presentation_plots(column_name,min_level, max_level,group_by):
 
 
 def plot_by_severity():
-
+    pass
 
 def presentation():
     eda.df.boxplot('log_adj_damage',by='decade')
@@ -411,6 +411,11 @@ def presentation():
     eda.df[condition1].boxplot('log_adj_damage',by='decade',figsize=(15,15))
     eda.df.hist('log_adj_damage',by='decade',figsize=(20,20),bins=40,alpha=.2)
     eda.df[condition1].hist('log_adj_damage',by='decade',figsize=(20,20),bins=40,alpha=.2)
+    eda.df[condition_severityA].boxplot('log_adj_damage',by='decade')
+
+def interesting_code():
+    eda.df['event_type'].unique()
+    pd.crosstab(tornado_df['decade'],tornado_df['severity'])
 
 if __name__ == '__main__':
     # path = '~/galvanize/ds-case-study-linear-models/forecast_HIV_infections/'
@@ -428,6 +433,8 @@ if __name__ == '__main__':
     eda.df.columns = [str.lower(column) for column in eda.df.columns]
     eda.set_number_correct('damage_crops')
     eda.set_number_correct('damage_property')
+    eda.df['conv_f_scale'] =  eda.df['tor_f_scale'].map(tor_conversion)
+
     '''
     if there isn't property damage, prob don't want to look at it
     however, there are some with crop damage and with injuries and deaths, that may be useful
@@ -446,12 +453,18 @@ if __name__ == '__main__':
     eda.set_numeric_column()
     eda.drop_columns(0,by_name=False)
     eda.target_column='adj_damage'
-    eda.df.drop(['gdp_adj_factor','data_source','event_id'],axis=1,inplace=True)
+    eda.df.drop(['gdp_adj_factor','event_id'],axis=1,inplace=True)
     eda.df['log_adj_damage'] = np.log(eda.df['adj_damage'])
     range_list = range(1950,2021,10)
     yr_labels = [ "{0}s".format(i, i + 9) for i in range_list[:-1]]
     eda.df['decade'] = pd.cut(eda.df.index, range_list, right=False, labels=yr_labels)
     condition_50s = (eda.df['decade']=='1950s')
 
+    event_targets = ['Tornado','TORNADOES']
+    condition_tornadoes = eda.df['event_type'].isin(event_targets)
+
     severity_max = eda.df[condition_50s]['adj_damage'].max()
     severity_range = np.log([1,severity_max/1000,severity_max/100,severity_max/10,3*severity_max])
+    severity_labels = ['A','B','C','D']
+    eda.df['severity'] = pd.cut(eda.df['log_adj_damage'], severity_range, right=False, labels=severity_labels)
+    condition_severityA = eda.df['severity']=='A'
