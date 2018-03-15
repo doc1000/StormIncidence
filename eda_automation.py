@@ -416,6 +416,12 @@ def presentation():
 def interesting_code():
     eda.df['event_type'].unique()
     pd.crosstab(tornado_df['decade'],tornado_df['severity'])
+    df_year['cnt'].hist(bins=20)
+    #it seem as if the early 2000s were anamolous for fewer storms.  is it bad measurement or real?  recovered into current decade
+    df_year.order_values('cnt').plot(x='year',y='cnt')
+    df_year.plot(x='year',y='log_adj_damage')
+
+
 
 if __name__ == '__main__':
     # path = '~/galvanize/ds-case-study-linear-models/forecast_HIV_infections/'
@@ -426,6 +432,8 @@ if __name__ == '__main__':
     # eda.target_column='HIVincidence'
     # #tar_chart = method_of_moments()
     #tar_chart.fit(df=eda.df,col=eda.target_column)
+    from scipy.stats import poisson
+
     path = ''
     filename = 'data/cleaned_storm_data.csv'
     df_master = pd.read_csv(str(path + filename))
@@ -439,9 +447,35 @@ if __name__ == '__main__':
 
     early_tor_rate = eda.df[eda.df['year']<1984]['state'].count()/33
     late_tor_rate = eda.df[eda.df['year']>=1984]['state'].count()/34
+    early_death_rate = eda.df[eda.df['year']<1984]['deaths_direct'].sum()/33
+    late_death_rate = eda.df[eda.df['year']>=1984]['deaths_direct'].sum()/33
+    late_damage_rate = np.log(eda.df[eda.df['year']>=1984]['adj_damage'].sum()/33)
+    early_damage_rate = np.log(eda.df[eda.df['year']<1984]['adj_damage'].sum()/33)
+    early_high_f_tor_rate = eda.df[(eda.df['year']<1984)&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/33
+    late_high_f_tor_rate = eda.df[(eda.df['year']>=1984)&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/33
 
     df_year = eda.df.groupby('year').sum().reset_index()
     df_year_cnt = eda.df.groupby('year').count().reset_index()
     df_year_cnt.columns=['year','cnt']
     df_year = df_year.merge(df_year_cnt)
+
+    two_epoch_holder = []
+    two_epoch_holder.append(['tor_rate',early_tor_rate,late_tor_rate])
+    two_epoch_holder.append(['death_rate',early_death_rate,late_death_rate])
+    two_epoch_holder.append(['damage_rate',early_damage_rate,late_damage_rate])
+    two_epoch_holder.append(['high_f_rate',early_high_f_tor_rate,late_high_f_tor_rate])
+
+    for hold in two_epoch_holder:
+        mu = hold[1]
+        x = hold[2]
+        hold.append(poisson.cdf(x,mu))
+        hold.append(poisson.ppf(0.05,mu))
+        hold.append(poisson.ppf(0.95,mu))
+    ''';
+    #my conclusion is that the rate of tornados, high speed tornados and death are significantly different in the late period.  They are significantly lower.
+    The rate of damage adjusted for gdp is not significantly different.
+    [('tor_rate', 9.7778373926053704e-13),
+    ('death_rate', 2.4924822188496841e-06),
+    ('damage_rate', 0.44332112322303219),
+    ('high_f_rate', 0.042380111991683962)]
     
