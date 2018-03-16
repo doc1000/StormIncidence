@@ -26,7 +26,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 #     predicteds_vs_actuals)
 
 
-def plot_hist_basic(df, col):
+def plot_hist_basic(df, col, label=None):
     '''
     Return a Matplotlib axis object with a histogram of the data in col.
 
@@ -44,7 +44,7 @@ def plot_hist_basic(df, col):
     ax: Matplotlib axis object
     '''
     data = df[col]
-    ax = data.hist(bins=30, normed=1, edgecolor='none', figsize=(10, 7), alpha=.5)
+    ax = data.hist(bins=30, normed=1, edgecolor='none', figsize=(10, 7), alpha=.5,label=label)
     ax.set_ylabel('Probability Density')
     ax.set_title(col)
 
@@ -88,7 +88,7 @@ class method_of_moments(object):
 
 
 
-    def plot_pdf(self, plot_df=None, ax=None, gamma=True, normal=True, xlim=None, ylim=None, mask = None):
+    def plot_pdf(self, plot_df=None, ax=None, gamma=True, normal=True, xlim=None, ylim=None, mask = None, description=None):
         """Plot distribution PDFs using MOM against histogram of data in df[col].
 
         Parameters
@@ -118,7 +118,7 @@ class method_of_moments(object):
             plot_df = self.df
 
         if ax is None:
-            ax = plot_hist_basic(plot_df, self.col)
+            ax = plot_hist_basic(plot_df, self.col, label = description)
 
         x_vals = np.linspace(plot_df[self.col].min(), plot_df[self.col].max())
 
@@ -434,36 +434,54 @@ if __name__ == '__main__':
     #tar_chart.fit(df=eda.df,col=eda.target_column)
     from scipy.stats import poisson
 
+
     path = ''
-    filename = 'data/cleaned_storm_data.csv'
+    filename = 'data/f_scale_storm_data_85.csv'
     df_master = pd.read_csv(str(path + filename))
+    filename = 'data/f_scale_storm_data_86.csv'
+    df_master2 = pd.read_csv(str(path + filename))
+    df_master = pd.concat([df_master,df_master2])
     eda = panda_eda(df_master)
-    condition_severityA = eda.df['severity']=='A'
 
-    range_list = range(1950,2021,10)
-    yr_labels = [ "{0}s".format(i, i + 9) for i in range_list[:-1]]
+    range_list = range(1948,2019,10)
+    yr_labels = [ "{0}-{1}".format(i, i + 9) for i in range_list[:-1]]
     eda.df['decade'] = pd.cut(eda.df['year'], range_list, right=False, labels=yr_labels)
+    condition_50s = (eda.df['decade']=='1958-1967')
+    severity_max = eda.df[condition_50s]['adj_damage'].max()
+    severity_range = np.log([0.5,severity_max/1000,severity_max/100,severity_max/10,3*severity_max])
+    severity_labels = ['A','B','C','D']
+    eda.df['severity'] = pd.cut(eda.df['log_adj_damage'], severity_range, right=False, labels=severity_labels)
+    # condition_severityA = eda.df['severity']=='A'
 
 
-    early_tor_rate = eda.df[eda.df['year']<1984]['state'].count()/33
-    late_tor_rate = eda.df[eda.df['year']>=1984]['state'].count()/34
+    pop_df = pd.read_csv('data/population.csv')
+    base_year_pop =pop_df[pop_df['year']==2017]['population'].values[0]
+    pop_df['pop_adj_factor']=pop_df['population']/base_year_pop
+    eda.df = eda.df.join(pop_df.set_index('year'),on='year')
+    eda.df['adj_deaths_direct'] = eda.df['deaths_direct']/eda.df['pop_adj_factor']
+#    eda.df = eda.df.reset_index()
+    #range_list = range(1950,2021,10)
+    #yr_labels = [ "{0}s".format(i, i + 9) for i in range_list[:-1]]
+    #eda.df['decade'] = pd.cut(eda.df['year'], range_list, right=False, labels=yr_labels)
+
+    eda.drop_columns(['begin_date','end_date','deaths_indirect','injuries_direct','injuries_indirect','population'])
+
+    tornado_condition = eda.df['conv_f_scale'].isin(['F2','F3','F4','F5'])
+    #two epoch split equally
+    early_tor_rate = eda.df[(eda.df['year']<1984)&tornado_condition]['state'].count()/33
+    late_tor_rate = eda.df[(eda.df['year']>=1984)&tornado_condition]['state'].count()/34
     early_death_rate = eda.df[eda.df['year']<1984]['deaths_direct'].sum()/33
-    late_death_rate = eda.df[eda.df['year']>=1984]['deaths_direct'].sum()/33
-    late_damage_rate = np.log(eda.df[eda.df['year']>=1984]['adj_damage'].sum()/33)
-    early_damage_rate = np.log(eda.df[eda.df['year']<1984]['adj_damage'].sum()/33)
+    late_death_rate = eda.df[eda.df['year']>=1984]['deaths_direct'].sum()/34
+    late_damage_rate = np.log(eda.df[eda.df['year']>=1984]['adj_damage'].sum())/34
+    early_damage_rate = np.log(eda.df[eda.df['year']<1984]['adj_damage'].sum())/33
     early_high_f_tor_rate = eda.df[(eda.df['year']<1984)&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/33
-    late_high_f_tor_rate = eda.df[(eda.df['year']>=1984)&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/33
-
-    df_year = eda.df.groupby('year').sum().reset_index()
-    df_year_cnt = eda.df.groupby('year').count().reset_index()
-    df_year_cnt.columns=['year','cnt']
-    df_year = df_year.merge(df_year_cnt)
+    late_high_f_tor_rate = eda.df[(eda.df['year']>=1984)&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/34
 
     two_epoch_holder = []
     two_epoch_holder.append(['tor_rate',early_tor_rate,late_tor_rate])
+    two_epoch_holder.append(['high_f_rate',early_high_f_tor_rate,late_high_f_tor_rate])
     two_epoch_holder.append(['death_rate',early_death_rate,late_death_rate])
     two_epoch_holder.append(['damage_rate',early_damage_rate,late_damage_rate])
-    two_epoch_holder.append(['high_f_rate',early_high_f_tor_rate,late_high_f_tor_rate])
 
     for hold in two_epoch_holder:
         mu = hold[1]
@@ -471,11 +489,79 @@ if __name__ == '__main__':
         hold.append(poisson.cdf(x,mu))
         hold.append(poisson.ppf(0.05,mu))
         hold.append(poisson.ppf(0.95,mu))
+
+    two_df = pd.DataFrame(two_epoch_holder, columns = ['Type','Early','Late','p_value','fifth','ninetyfifth'])
+    two_df.Early= two_df.Early.round(1)
+    two_df.Late= two_df.Late.round(1)
+    two_df.p_value= two_df.p_value.round(2)
+    two_df.fifth= two_df.fifth.round(1)
+    two_df.ninetyfifth= two_df.ninetyfifth.round(1)
+
+    #two epoch split by last decade
+    condition_1950_2007 = eda.df['decade']!='2008-2017'
+    condition_2008_2017 = eda.df['decade']=='2008-2017'
+    yr_count_1950_2007 = len(eda.df[condition_1950_2007]['year'].unique())
+    yr_count_2008_2017 = len(eda.df[condition_2008_2017]['year'].unique())
+    early_tor_rate = eda.df[condition_1950_2007 & tornado_condition]['state'].count()/yr_count_1950_2007
+    late_tor_rate = eda.df[condition_2008_2017 &tornado_condition]['state'].count()/yr_count_2008_2017
+    early_death_rate = eda.df[condition_1950_2007]['deaths_direct'].sum()/yr_count_1950_2007
+    late_death_rate = eda.df[condition_2008_2017]['deaths_direct'].sum()/yr_count_2008_2017
+    early_adj_death_rate = eda.df[condition_1950_2007]['adj_deaths_direct'].sum()/yr_count_1950_2007
+    late_adj_death_rate = eda.df[condition_2008_2017]['adj_deaths_direct'].sum()/yr_count_2008_2017
+    late_damage_rate = np.log(eda.df[condition_2008_2017]['adj_damage'].sum())/yr_count_2008_2017
+    early_damage_rate = np.log(eda.df[condition_1950_2007]['adj_damage'].sum())/yr_count_1950_2007
+    early_high_f_tor_rate = eda.df[condition_1950_2007 &(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/yr_count_1950_2007
+    late_high_f_tor_rate = eda.df[condition_2008_2017&(eda.df['conv_f_scale'].isin(['F4','F5']))]['state'].count()/yr_count_2008_2017
+
+    recent_epoch_holder = []
+    recent_epoch_holder.append(['tor_rate',early_tor_rate,late_tor_rate])
+    recent_epoch_holder.append(['high_f_rate',early_high_f_tor_rate,late_high_f_tor_rate])
+    recent_epoch_holder.append(['death_rate',early_death_rate,late_death_rate])
+    recent_epoch_holder.append(['adj_death_rate',early_adj_death_rate,late_adj_death_rate])
+    recent_epoch_holder.append(['adj_damage_rate',early_damage_rate,late_damage_rate])
+
+
+    for hold in recent_epoch_holder:
+        mu = hold[1]
+        x = hold[2]
+        hold.append(poisson.cdf(x,mu))
+        hold.append(poisson.ppf(0.05,mu))
+        hold.append(poisson.ppf(0.95,mu))
+
+
+    rec_df = pd.DataFrame(recent_epoch_holder, columns = ['Type','Early','Late','p_value','fifth','ninetyfifth'])
+    rec_df.Early= rec_df.Early.round(1)
+    rec_df.Late= rec_df.Late.round(1)
+    rec_df.p_value= rec_df.p_value.round(2)
+    rec_df.fifth= rec_df.fifth.round(1)
+    rec_df.ninetyfifth= rec_df.ninetyfifth.round(1)
+    # df_year = eda.df.groupby('year').sum().reset_index()
+    # df_year_cnt = eda.df.groupby('year')['state'].count().reset_index()
+    # df_year_cnt.columns=['year','cnt']
+    # df_year = df_year.merge(df_year_cnt)
+
+    df_yr = eda.df[eda.df['conv_f_scale'].isin(['F2','F3','F4','F5'])].groupby('year').sum().reset_index()
+    df_cnt = eda.df[eda.df['conv_f_scale'].isin(['F2','F3','F4','F5'])].groupby('year').count().reset_index()
+    df_cnt = df_cnt['state']
+    df_cnt.columns = ['cnt']
+    df_yr['cnt']=df_cnt
+
+
+    df_yr_all = eda.df.groupby('year').sum().reset_index()
+    df_cnt = eda.df.groupby('year').count().reset_index()
+    df_cnt = df_cnt['state']
+    df_cnt.columns = ['cnt']
+    df_yr_all['cnt']=df_cnt
+
     ''';
     #my conclusion is that the rate of tornados, high speed tornados and death are significantly different in the late period.  They are significantly lower.
     The rate of damage adjusted for gdp is not significantly different.
+     [(hold[0],hold[3]) for hold in two_epoch_holder]
+
     [('tor_rate', 9.7778373926053704e-13),
     ('death_rate', 2.4924822188496841e-06),
-    ('damage_rate', 0.44332112322303219),
+    ('damage_rate', 0.44332112322303219)
     ('high_f_rate', 0.042380111991683962)]
-    
+
+    I need to plot out the overall distributions over each measure.
+    '''
